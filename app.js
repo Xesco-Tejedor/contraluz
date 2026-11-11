@@ -1,4 +1,4 @@
-import {FALLACIES,SOURCES,requestTurn} from './engine.js';
+import {FALLACIES,SOURCES,requestTurn} from './engine.js?v=20261111-2';
 const $=s=>document.querySelector(s);
 const KEY='contraluz.session.v1';
 let session=null,mode='debate',busy=false,controller=null,storageOK=true;
@@ -19,12 +19,12 @@ function paint(){
 }
 function review(){const root=$('#review-list');root.replaceChildren();let num=0;session.messages.filter(m=>m.role==='model').forEach(m=>{num++;const block=el('article',undefined,'review-card');block.append(el('h3',`Turno ${num}${m.caught?' · Detectado':''}`));(m.traps||[]).forEach(t=>{const f=FALLACIES.find(f=>f.id===t.id);block.append(el('strong',f?.name||'Trampa'),el('blockquote',t.quote),el('p',t.why));});root.append(block);});if(!num)root.append(el('p','No se llegó a generar ningún turno. No hay trampas que revisar.'));}
 function setMode(value){mode=value;$('#name-wrap').hidden=value!=='accuse';$('#fallacy-name').required=value==='accuse';$('#debate-mode').setAttribute('aria-pressed',String(value==='debate'));$('#accuse-mode').setAttribute('aria-pressed',String(value==='accuse'));$('#reply-label').textContent=value==='accuse'?'Explica dónde falla el razonamiento':'Tu respuesta';$('#reply').placeholder=value==='accuse'?'Cita la idea y explica por qué la conclusión no se sigue de las razones…':'Responde al argumento o explica una trampa que hayas detectado…';}
-function setBusy(value){busy=value;$('#start').disabled=value;$('#send').disabled=value;$('#reply').disabled=value;$('#fallacy-name').disabled=value;$('#end').disabled=value;$('#export').disabled=value;$('#erase').disabled=value;$('#debate-mode').disabled=value;$('#accuse-mode').disabled=value;$('#cancel').hidden=!value;$('#send').textContent=value?'Pensando…':'Enviar';$('#status').textContent=value?'Preparando un argumento. La IA gratuita puede tardar hasta 60 segundos…':'';}
+function setBusy(value){busy=value;$('#start').disabled=value;$('#send').disabled=value;$('#reply').disabled=value;$('#fallacy-name').disabled=value;$('#end').disabled=value;$('#export').disabled=value;$('#erase').disabled=value;$('#debate-mode').disabled=value;$('#accuse-mode').disabled=value;$('#cancel').hidden=!value;$('#send').textContent=value?'Pensando…':'Enviar';$('#status').textContent=value?'Preparando un argumento. La IA gratuita puede tardar hasta 120 segundos…':'';}
 async function turn(input,name=''){
  if(busy||!session||session.ended)return;
  if(session.messages.length>=90){$('#error').hidden=false;$('#error').textContent='Esta sesión ha llegado a su límite. Ciérrala y descarga la revisión antes de empezar otra.';return;}
  $('#error').hidden=true;setBusy(true);controller=new AbortController();const active=session;let timeout=false;
- const timer=setTimeout(()=>{timeout=true;controller?.abort();},60000);
+ const timer=setTimeout(()=>{timeout=true;controller?.abort();},120000);
  try{
   const result=await requestTurn(active,input,mode,name,controller.signal);
   if(session!==active)return;
@@ -33,7 +33,7 @@ async function turn(input,name=''){
   const adequateExplanation=mode!=='accuse'||(input.trim().length>=8&&input.trim().split(/\s+/).length>=2);
   if(result.assessment&&adequateExplanation&&previous&&!previous.caught){previous.caught=true;const f=FALLACIES.find(f=>f.id===result.assessment.id);active.messages.push({role:'point',text:`[¡Punto para ti!] ${f.name}. ${result.assessment.why}`,evidence:result.assessment});}
   active.messages.push({role:'model',text:result.reply,traps:result.traps,graph:result.graph,caught:false});save();paint();$('#reply').value='';$('#fallacy-name').value='';setMode('debate');$('#composer').scrollIntoView({behavior:'smooth',block:'nearest'});
- }catch(e){$('#error').hidden=false;$('#error').textContent=e.name==='AbortError'?(timeout?'La IA no respondió en 60 segundos. No se ha añadido ningún turno. Tu texto se conserva; puedes volver a intentarlo más tarde.':'Petición cancelada. No se ha añadido ningún turno. La solicitud ya podría haber consumido cuota gratuita.'):e.message;}
+ }catch(e){$('#error').hidden=false;$('#error').textContent=e.name==='AbortError'?(timeout?'La IA no respondió en 120 segundos. No se ha añadido ningún turno. Tu texto se conserva; puedes volver a intentarlo más tarde.':'Petición cancelada. No se ha añadido ningún turno. La solicitud ya podría haber consumido cuota gratuita.'):e.message;}
  finally{clearTimeout(timer);controller=null;setBusy(false);}
 }
 $('#start-form').addEventListener('submit',e=>{e.preventDefault();const topic=$('#topic').value.trim();if(!topic)return;session={topic,difficulty:document.querySelector('[name=difficulty]:checked').value,messages:[],ended:false,createdAt:new Date().toISOString()};save();paint();$('#reply').value=`Quiero debatir sobre: ${topic}`;void turn($('#reply').value);});
