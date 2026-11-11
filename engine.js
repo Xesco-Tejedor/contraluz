@@ -30,6 +30,17 @@ export const FALLACIES = [
 ].map(([id,name,definition,source]) => ({id,name,definition,source}));
 export const ENDPOINT = 'https://gemini-proxy.francesc-adria-perello.workers.dev/openrouter';
 export const MODEL = 'google/gemma-4-31b-it:free';
+export function isCompleteQuote(text, quote) {
+ if(typeof quote!=='string'||quote.trim()!==quote||quote.length<25||quote.split(/\s+/).length<5||!/[.!?…]$/.test(quote))return false;
+ let at=text.indexOf(quote);
+ while(at!==-1){
+  const prefix=text.slice(0,at).trimEnd();
+  const suffix=text.slice(at+quote.length);
+  if((!prefix||/[.!?…]$/.test(prefix))&&(!suffix||/^\s/.test(suffix)))return true;
+  at=text.indexOf(quote,at+1);
+ }
+ return false;
+}
 export function parseReply(raw, previous) {
  let text=raw.trim().replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'');
  const data=JSON.parse(text);
@@ -43,10 +54,10 @@ export function parseReply(raw, previous) {
  if (a.correct===true && previous && !previous.caught && FALLACIES.some(f=>f.id===a.id) && typeof a.quote==='string' && a.quote.length>=8 && previous.text.includes(a.quote) && typeof a.why==='string' && a.why.length>=15) assessment={id:a.id,quote:a.quote,why:a.why};
  const graph=data.graph;
  if (!graph || !Array.isArray(graph.nodes) || graph.nodes.length<2 || graph.nodes.length>8 || !Array.isArray(graph.edges) || !graph.edges.length) throw new Error('La IA no ha devuelto el árbol lógico del turno. No se ha añadido.');
- const ids=new Set();
+ const ids=new Set();const quotes=new Set();
  for (const n of graph.nodes) {
-  if(typeof n.id!=='string'||ids.has(n.id)||!['premisa','conclusion','afirmacion'].includes(n.kind)||!['supuesto','no_verificado'].includes(n.status)||typeof n.quote!=='string'||n.quote.length<5||!data.reply.includes(n.quote)||typeof n.comment!=='string'||n.comment.length<10) throw new Error('El árbol lógico contiene nodos sin cita o estado válido. No se ha añadido.');
-  ids.add(n.id);
+  if(typeof n.id!=='string'||ids.has(n.id)||!['premisa','conclusion','afirmacion'].includes(n.kind)||!['supuesto','no_verificado'].includes(n.status)||!isCompleteQuote(data.reply,n.quote)||quotes.has(n.quote)||typeof n.comment!=='string'||n.comment.length<10) throw new Error('El árbol lógico contiene nodos sin cita o estado válido. No se ha añadido.');
+  ids.add(n.id);quotes.add(n.quote);
  }
  for (const e of graph.edges) if(!ids.has(e.from)||!ids.has(e.to)||e.from===e.to||typeof e.comment!=='string'||e.comment.length<10) throw new Error('El árbol lógico contiene conexiones inválidas. No se ha añadido.');
  return {reply:data.reply.trim(),traps,assessment,graph};
@@ -59,7 +70,7 @@ Mecánica: espera el tema; mantén el foco en el escenario y en lo que acaba de 
 Evalúa si el usuario ha identificado una falacia REAL del ÚLTIMO turno de personaje y EXPLICADO concretamente el salto lógico, no solo dicho un nombre. Acepta sinónimos, nombres aproximados con explicación precisa y fallos válidos aunque no fueran los planeados. Si solo discrepa o adivina sin explicar, assessment.correct=false y no reveles la respuesta correcta; pide que precise el paso del argumento sin dar pistas. Si acierta, assessment contiene id, cita literal del turno anterior y explicación clara. La interfaz mostrará [¡Punto para ti!] y tu explicación fuera de personaje; reply debe retomar el debate con una NUEVA trampa distinta. Nunca te otorgues tú puntos. Si ya se ha puntuado el turno, no lo vuelvas a puntuar. Un solo punto por turno acertado.
 Catálogo de errores argumentativos (no presentar sesgos psicológicos como equivalentes):\n${catalog}
 Devuelve SOLO JSON válido: {"reply":"turno de personaje de 60-140 palabras", "traps":[{"id":"id del catálogo","quote":"cita EXACTA que esté en reply y contenga la trampa","why":"explicación del salto lógico"}],"assessment":{"correct":false}}. Si acierta, assessment={"correct":true,"id":"id válido","quote":"cita EXACTA del turno anterior","why":"por qué la explicación del participante demuestra el fallo"}. Traps NO se muestra hasta cerrar el ejercicio o abrir explícitamente su revisión. No incluyas marcadores de acierto en reply.
-AÑADE al mismo objeto JSON graph={"nodes":[{"id":"p1","kind":"premisa","quote":"cita EXACTA de reply","status":"supuesto","comment":"por qué es una premisa, qué evidencia falta"},{"id":"c1","kind":"conclusion","quote":"otra cita EXACTA de reply","status":"no_verificado","comment":"qué pretende concluir"}],"edges":[{"from":"p1","to":"c1","comment":"cómo se intenta inferir la conclusión y dónde está el salto"}]}. Usa de 2 a 8 nodos y conexiones SOLO del argumento concreto que acabas de escribir. Cada cita debe estar literalmente en reply. No inventes premisas para completar una forma estándar. kind: premisa/conclusion/afirmacion. status: supuesto/no_verificado. No declares hechos demostrados ni verdaderos: no hay comprobación externa. La corrección de una inferencia y la verdad de sus premisas son cosas distintas. Los comentarios explican relaciones concretas, supuestos y límites; no son un monólogo interno ni un proceso de pensamiento. Es un mapa didáctico de argumentos públicos.
+AÑADE al mismo objeto JSON graph={"nodes":[{"id":"p1","kind":"premisa","quote":"cita EXACTA de reply","status":"supuesto","comment":"por qué es una premisa, qué evidencia falta"},{"id":"c1","kind":"conclusion","quote":"otra cita EXACTA de reply","status":"no_verificado","comment":"qué pretende concluir"}],"edges":[{"from":"p1","to":"c1","comment":"cómo se intenta inferir la conclusión y dónde está el salto"}]}. Usa de 2 a 8 nodos y conexiones SOLO del argumento concreto que acabas de escribir. Cada cita debe estar literalmente en reply y ser UNA O VARIAS ORACIONES COMPLETAS: empieza al inicio del texto o después de un signo de fin de oración, termina en punto, interrogación o exclamación, tiene al menos cinco palabras y 25 caracteres, y conserva su sentido sin cortar palabras ni cláusulas. No uses subcadenas arbitrarias, no repitas la misma cita en dos nodos. Escribe reply con al menos dos oraciones completas que permitan distinguir razones y conclusión. No basta con cumplir estos límites: cada nodo debe expresar una idea comprensible y pertinente por sí misma. No inventes premisas para completar una forma estándar. kind: premisa/conclusion/afirmacion. status: supuesto/no_verificado. No declares hechos demostrados ni verdaderos: no hay comprobación externa. La corrección de una inferencia y la verdad de sus premisas son cosas distintas. Los comentarios explican relaciones concretas, supuestos y límites; no son un monólogo interno ni un proceso de pensamiento. Es un mapa didáctico de argumentos públicos.
 Tema elegido: ${session.topic.slice(0,1600)}.
 Último turno evaluable: ${JSON.stringify(previous || null)}.`;
  const history=session.messages.slice(-18).filter(m=>m.role==='user'||m.role==='model').map(m=>({role:m.role,parts:[{text:m.text.slice(0,5000)}]}));
@@ -75,4 +86,4 @@ export async function requestTurn(session,input,mode,name,signal,fetcher=fetch) 
  const raw=(data.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join('').trim();
  if (!raw) throw new Error('La IA no ha devuelto texto. No se ha añadido ningún turno.');
  return {...parseReply(raw,req.previous),user:req.user};
-   }
+}
