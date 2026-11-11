@@ -4,7 +4,9 @@ Simulador consentido de debate para entrenar el pensamiento crítico. Interfaz e
 
 ## Estado de verificación · 11 de noviembre de 2026
 
-La interfaz, el guardado local, la exportación y la mecánica se han probado en un navegador con respuestas de IA controladas. **Eso no equivale a una conversación real validada.** La comprobación real de la conexión gratuita devolvió un error 429 del proveedor. La conversación depende de que esa conexión esté disponible; no debe considerarse operativa mientras no se complete una prueba real satisfactoria. No se han activado pagos ni un proveedor alternativo para evitar la cuota.
+Prueba real acotada superada con Cloudflare Workers AI y el modelo fijo GLM 4.7 Flash: primer argumento, detección explicada, punto, nuevo argumento de otra categoría y árbol lógico. También se comprobaron un nombre aproximado con explicación correcta, un nombre sin explicación y una mera discrepancia. Se inspeccionaron los textos generados y las capturas reales, además de los controles automáticos. La interfaz integrada se comprobó a 320, 390 y 1280 píxeles, sin desbordamiento horizontal; cierre y recarga conservaron la puntuación.
+
+**Alcance:** las muestras reales cubrieron falsa dicotomía y popularidad sobre museos. No prueban todas las categorías, dificultades ni temas. La IA puede equivocarse; una segunda revisión del mismo modelo es un filtro, no una garantía independiente. Si falla el control, se rechaza el turno sin inventar una respuesta ni repetir automáticamente.
 
 El catálogo y la guía se pueden consultar sin usar IA. No hay respuestas prefabricadas que se hagan pasar por conversación generada.
 
@@ -33,12 +35,12 @@ La aplicación distingue errores argumentativos de sesgos psicológicos y explic
 
 ## Privacidad y límites
 
-- El tema y el contexto reciente se envían a la conexión de IA ya existente, con un modelo identificado como gratuito. No se guarda ninguna clave en esta aplicación.
+- El tema, el contexto reciente y las explicaciones se envían a un servicio separado de Contraluz en Cloudflare Workers AI, modelo fijo `@cf/zai-org/glm-4.7-flash`. No se guarda ninguna clave en esta aplicación.
 - No hay cambio automático a modelos de pago ni llamadas en segundo plano. Cada turno requiere una acción del participante. Una petición cancelada puede haber consumido cuota gratuita.
 - La sesión se guarda en `localStorage`, solo en el navegador actual, sin cifrado ni sincronización. La opción de borrar elimina esa copia local, no los datos que pudiera haber recibido el proveedor.
 - No uses datos sensibles ni tomes los argumentos del personaje como información fiable o asesoramiento.
 - La IA puede equivocarse al generar o evaluar falacias. La puntuación no es una evaluación académica.
-- El modelo recibe hasta 18 mensajes recientes y el último turno evaluable. Las sesiones largas pueden perder parte del contexto anterior. El límite de una sesión es de 90 mensajes.
+- La generación recibe hasta 8 mensajes recientes; la evaluación recibe el último argumento y la respuesta del participante. Las sesiones largas pueden perder parte del contexto anterior. El límite de una sesión es de 90 mensajes.
 - Las respuestas vacías, mal formadas, sin anotaciones válidas o sin un mapa con citas verificables dentro del turno no se añaden al historial. Los fallos de conexión conservan el texto para intentarlo más tarde.
 - Las anotaciones de trampas están ocultas en la interfaz durante el ejercicio, no son un secreto de seguridad: el dueño del navegador puede inspeccionar el almacenamiento o las solicitudes.
 
@@ -50,4 +52,15 @@ La aplicación distingue errores argumentativos de sesgos psicológicos y explic
 - `app.js`: sesión, mensajes, puntuación, revisión y exportación.
 - `icon.svg`: icono local.
 
-Sirve esta carpeta mediante HTTP para desarrollo (`python3 -m http.server`). La conexión de IA está limitada a los orígenes admitidos por su servidor; abrir el HTML como archivo local o desde otro origen no la habilita. No se ha modificado esa configuración.
+Sirve esta carpeta mediante HTTP para desarrollo (`python3 -m http.server`). La conexión de IA está limitada a los orígenes admitidos por su servidor; abrir el HTML como archivo local o desde otro origen no la habilita. El servicio separado admite el origen de esta página, no localhost.
+
+
+## Lógica y límites de la conexión
+
+- La evaluación de la explicación se hace por separado de la generación. No basta con que el argumento tenga una falacia: el participante debe explicar su fallo.
+- La generación entrega oraciones completas; el texto visible y las citas del árbol se construyen con esas mismas oraciones. Se rechazan citas incompletas, nodos duplicados y conexiones inválidas. La categoría procede del ejercicio asignado y se revisa contra el argumento real. Una afirmación usada como apoyo en una conexión se presenta como premisa.
+- Un control didáctico adicional examina el argumento, la falacia y sus conexiones antes de mostrarlo. No comprueba hechos externos. Los nodos conservan las etiquetas de supuesto o no verificado.
+- Hasta tres llamadas por turno: evaluación, generación y revisión. El primer turno usa dos. No hay llamadas automáticas en segundo plano ni reintentos automáticos. La espera máxima visible es de 120 segundos.
+- Cuenta comprobada en Workers Free, sin método de pago guardado. El cupo gratuito compartido es de 10.000 neuronas diarias; la documentación indica que el exceso en Free se detiene con error. No se activa un plan pagado ni se cambia automáticamente de proveedor.
+- Fuentes de coste y tratamiento de datos: https://developers.cloudflare.com/workers-ai/platform/pricing/ y https://developers.cloudflare.com/workers-ai/platform/data-usage/
+- El historial Git conserva la conexión anterior para una reversión manual. No se usa como alternativa automática. El servicio de otras aplicaciones no se modifica.
