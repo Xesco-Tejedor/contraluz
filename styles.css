@@ -14,3 +14,20 @@ select{width:100%;background:var(--bg);color:var(--ink);border:1px solid var(--l
 .review-card.rejected h3{font-size:14px;color:var(--muted)}
 .review-card .badge{display:inline-block;margin:0 0 8px}
 @media(max-width:600px){.sim-card{padding:16px}.sim-text{font-size:16px}}
+
+/* v20261112-2 · registro local y gestión de sesión */
+.top-actions{display:flex;gap:2px;align-items:center}
+.dialog-actions{display:flex;flex-wrap:wrap;gap:6px 20px;margin-top:20px}
+.dialog-actions button{padding-left:0}
+.profile-row{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:8px 0}
+.profile-pick{padding-left:0;text-align:left}
+.profile-meta{font-size:12px;color:var(--muted)}
+#profile-form{margin-top:20px;border-top:1px solid var(--line);padding-top:18px}
+#profile-form input{margin-bottom:14px}
+#profile-who{font-size:15px;color:var(--ink);margin:8px 0 4px}
+#profile-stats{margin:0 0 4px}
+@media(max-width:600px){.top-actions .quiet{font-size:12px;padding:8px 4px}}
+
+.brand{white-space:nowrap}
+.top-actions .quiet{white-space:nowrap}
+@media(max-width:600px){.top{flex-wrap:wrap;row-gap:6px}}
