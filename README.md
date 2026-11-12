@@ -2,6 +2,15 @@
 
 Simulador consentido de debate para entrenar el pensamiento crítico. Interfaz en español, identidad ámbar, sin registro adicional ni claves en el navegador.
 
+## Estado de verificación · 12 de noviembre de 2026
+
+Ampliación con dos modos nuevos junto al debate:
+
+- **Detectar en un texto**: pega cualquier texto y la aplicación señala directamente cada falacia o razonamiento erróneo con nombre, cita literal y explicación. Cada hallazgo pasa una segunda revisión automática (operación `audit`) y las citas que no son literales se descartan antes de mostrarlas. Un texto sin argumentos defectuosos devuelve «sin fallos claros». Prueba real superada: texto con apelación a la popularidad y evidencia anecdótica (hallazgos señalados con cita literal), texto neutro de horarios (cero hallazgos; el falso positivo de la primera pasada quedó descartado por la revisión).
+- **Simular un argumento**: ejercicio inverso. Genera a petición un razonamiento erróneo con apariencia de verdad coherente sobre el tema elegido (postura y falacia opcionales, 22 categorías, tres dificultades). El resultado se muestra siempre con la etiqueta visible «SIMULACIÓN · Este texto contiene una falacia escrita a propósito» y la trampa solo se revela al abrirla, con cita, explicación y mapa. El control didáctico (`audit`) valida el texto antes de mostrarlo; si lo rechaza, no se muestra ni se repite automáticamente.
+- El servicio de IA incorpora la operación `detect` (versión 3). Debate intacto: regresión real superada (primer turno, sesión conservada, cambio entre modos). Interfaz comprobada a 390 px sin desbordamiento. Los análisis y simulaciones no se guardan en el navegador; solo el debate conserva historial local.
+- Límites conocidos: la detección usa el mismo modelo pequeño y puede omitir fallos o, incluso tras la segunda revisión, señalar algo legítimo; la interfaz muestra los hallazgos descartados para que la decisión final sea del usuario.
+
 ## Estado de verificación · 11 de noviembre de 2026
 
 Prueba real acotada superada con Cloudflare Workers AI y el modelo fijo GLM 4.7 Flash: primer argumento, detección explicada, punto, nuevo argumento de otra categoría y árbol lógico. También se comprobaron un nombre aproximado con explicación correcta, un nombre sin explicación y una mera discrepancia. Se inspeccionaron los textos generados y las capturas reales, además de los controles automáticos. La interfaz integrada se comprobó a 320, 390 y 1280 píxeles, sin desbordamiento horizontal; cierre y recarga conservaron la puntuación.
@@ -12,6 +21,7 @@ El catálogo y la guía se pueden consultar sin usar IA. No hay respuestas prefa
 
 ## Uso
 
+0. Elige el ejercicio: **Debate**, **Detectar en un texto** o **Simular un argumento**.
 1. Propón un tema o escenario y elige nivel: Inicial, Sutil o Exigente.
 2. Lee el aviso de simulación y privacidad antes de empezar.
 3. Debate normalmente, o usa **Señalar trampa** para nombrar o describir la falacia y explicar el salto lógico. También puedes hacerlo dentro de un mensaje normal.
