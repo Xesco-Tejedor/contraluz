@@ -1,17 +1,29 @@
-import {FALLACIES,SOURCES,requestTurn,detectFallacies,simulateArgument} from './engine.js?v=20261112-1';
+import {FALLACIES,SOURCES,requestTurn,detectFallacies,simulateArgument} from './engine.js?v=20261112-2';
 const $=s=>document.querySelector(s);
 const KEY='contraluz.session.v1';
+const PROFILES_KEY='contraluz.profiles.v1';
+const ACTIVE_KEY='contraluz.active.v1';
 let session=null,mode='debate',busy=false,controller=null,storageOK=true,viewingModes=false;
+let profiles=[],activeId='';
 let detectResult=null,simResult=null;
 function el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;}
-function save(){try{if(session)localStorage.setItem(KEY,JSON.stringify(session));else localStorage.removeItem(KEY);}catch{storageOK=false;} storageNote();}
-function storageNote(){$('#storage').textContent=storageOK?'Historial local en este navegador. No se sincroniza. Puedes descargarlo o borrarlo.':'No se ha podido guardar el historial en este navegador. Descarga la conversación para conservarla.';}
-try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s&&typeof s.topic==='string'&&Array.isArray(s.messages)&&s.messages.length<=100&&s.messages.every(m=>['user','model','point'].includes(m.role)&&typeof m.text==='string'))session=s;}catch{storageOK=false;}
+function sessionKey(){const p=activeProfile();return p?KEY+'.'+p.id:KEY;}
+function activeProfile(){return profiles.find(p=>p.id===activeId)||null;}
+function saveProfiles(){try{localStorage.setItem(PROFILES_KEY,JSON.stringify(profiles));localStorage.setItem(ACTIVE_KEY,activeId);}catch{storageOK=false;}}
+function loadProfiles(){try{const raw=JSON.parse(localStorage.getItem(PROFILES_KEY)||'[]');if(Array.isArray(raw))profiles=raw.filter(x=>x&&typeof x.id==='string'&&typeof x.name==='string').map(x=>({id:x.id,name:String(x.name).slice(0,60),email:typeof x.email==='string'?x.email.slice(0,120):'',createdAt:typeof x.createdAt==='string'?x.createdAt:new Date().toISOString(),stats:{debates:Math.max(0,Math.floor(Number(x.stats&&x.stats.debates))||0),points:Math.max(0,Math.floor(Number(x.stats&&x.stats.points))||0)}}));}catch{profiles=[];storageOK=false;}
+try{activeId=localStorage.getItem(ACTIVE_KEY)||'';}catch{activeId='';}
+if(activeId&&!profiles.some(p=>p.id===activeId))activeId='';}
+function save(){try{if(session)localStorage.setItem(sessionKey(),JSON.stringify(session));else localStorage.removeItem(sessionKey());}catch{storageOK=false;} storageNote();}
+function storageNote(){const p=activeProfile();$('#storage').textContent=storageOK?('Historial local en este navegador'+(p?' (registro: '+p.name+')':'')+'. No se sincroniza. Puedes descargarlo o borrarlo.'):'No se ha podido guardar el historial en este navegador. Descarga la conversación para conservarla.';}
+function loadSession(){session=null;try{const s=JSON.parse(localStorage.getItem(sessionKey())||'null');if(s&&typeof s.topic==='string'&&Array.isArray(s.messages)&&s.messages.length<=100&&s.messages.every(m=>['user','model','point'].includes(m.role)&&typeof m.text==='string'))session=s;}catch{storageOK=false;}}
+loadProfiles();loadSession();
 function paint(){
  const showArena=!!session&&!viewingModes;
  $('.intro').hidden=showArena;$('#setup').hidden=showArena;$('#arena').hidden=!showArena;
  $('#resume-debate').hidden=!(session&&viewingModes);
  if(session&&viewingModes)$('#resume-debate').textContent='← Volver al debate en curso: '+session.topic.slice(0,80);
+ const prof=activeProfile();$('#profile-open').textContent=prof?prof.name:'Entrar / registro';
+ $('#restart').hidden=!session||!!session.ended;
  if(!session){storageNote();return;}
  $('#session-topic').textContent=session.topic;
  $('#difficulty-label').textContent=`SIMULACIÓN · NIVEL ${session.difficulty.toUpperCase()}${session.ended?' · CERRADA':''}`;
@@ -28,7 +40,7 @@ function setExercise(value){
  $('#tab-debate').setAttribute('aria-pressed',String(value==='debate'));$('#tab-detect').setAttribute('aria-pressed',String(value==='detect'));$('#tab-simulate').setAttribute('aria-pressed',String(value==='simulate'));
 }
 function setBusy(value,activity){
- busy=value;['start','send','detect-go','sim-go','end','export','erase','debate-mode','accuse-mode','tab-debate','tab-detect','tab-simulate','modes-open','resume-debate'].forEach(id=>{const n=document.getElementById(id);if(n)n.disabled=value;});
+ busy=value;['start','send','detect-go','sim-go','end','export','erase','restart','profile-open','debate-mode','accuse-mode','tab-debate','tab-detect','tab-simulate','modes-open','resume-debate'].forEach(id=>{const n=document.getElementById(id);if(n)n.disabled=value;});
  $('#reply').disabled=value;$('#fallacy-name').disabled=value;$('#detect-text').disabled=value;$('#sim-topic').disabled=value;$('#sim-stance').disabled=value;$('#sim-fallacy').disabled=value;
  $('#cancel').hidden=!value;$('#detect-cancel').hidden=!value;$('#sim-cancel').hidden=!value;
  $('#send').textContent=value?'Pensando…':'Enviar';$('#detect-go').textContent=value?'Analizando…':'Analizar texto';$('#sim-go').textContent=value?'Escribiendo…':'Generar simulación';
@@ -52,7 +64,7 @@ async function turn(input,name=''){
   const previous=[...active.messages].reverse().find(m=>m.role==='model');
   active.messages.push({role:'user',text:result.user});
   const adequateExplanation=mode!=='accuse'||(input.trim().length>=8&&input.trim().split(/\s+/).length>=2);
-  if(result.assessment&&adequateExplanation&&previous&&!previous.caught){previous.caught=true;const f=FALLACIES.find(f=>f.id===result.assessment.id);active.messages.push({role:'point',text:`[¡Punto para ti!] ${f.name}. ${result.assessment.why}`,evidence:result.assessment});}
+  if(result.assessment&&adequateExplanation&&previous&&!previous.caught){previous.caught=true;const f=FALLACIES.find(f=>f.id===result.assessment.id);active.messages.push({role:'point',text:`[¡Punto para ti!] ${f.name}. ${result.assessment.why}`,evidence:result.assessment});const prof=activeProfile();if(prof){prof.stats.points++;saveProfiles();}}
   active.messages.push({role:'model',text:result.reply,traps:result.traps,graph:result.graph,caught:false});save();paint();$('#reply').value='';$('#fallacy-name').value='';setMode('debate');$('#composer').scrollIntoView({behavior:'smooth',block:'nearest'});
  });
 }
@@ -104,11 +116,66 @@ $('#debate-mode').addEventListener('click',()=>setMode('debate'));$('#accuse-mod
 $('#tab-debate').addEventListener('click',()=>setExercise('debate'));$('#tab-detect').addEventListener('click',()=>setExercise('detect'));$('#tab-simulate').addEventListener('click',()=>setExercise('simulate'));
 $('#modes-open').addEventListener('click',()=>{if(busy)return;viewingModes=true;paint();$('#setup').scrollIntoView({behavior:'smooth',block:'start'});});
 $('#resume-debate').addEventListener('click',()=>{viewingModes=false;paint();});
-$('#end').addEventListener('click',()=>{if(busy||!session)return;if(!confirm('Esto termina el ejercicio y revela las trampas previstas. ¿Cerrar y revisar?'))return;session.ended=true;session.treeUntil=session.messages.filter(m=>m.role==='model').length;$('#error').hidden=true;save();paint();$('#review').scrollIntoView({behavior:'smooth',block:'start'});});
+$('#end').addEventListener('click',()=>{if(busy||!session)return;if(!confirm('Esto termina el ejercicio y revela las trampas previstas. ¿Cerrar y revisar?'))return;session.ended=true;{const prof=activeProfile();if(prof){prof.stats.debates++;saveProfiles();}}session.treeUntil=session.messages.filter(m=>m.role==='model').length;$('#error').hidden=true;save();paint();$('#review').scrollIntoView({behavior:'smooth',block:'start'});});
 $('#new').addEventListener('click',()=>{if(!confirm('La sesión guardada se sustituirá. Descárgala primero si quieres conservarla. ¿Empezar otra?'))return;session=null;viewingModes=false;save();paint();$('#error').hidden=true;$('#topic').focus();});
 function download(){if(!session)return;let text=`# Contraluz\n\nTema: ${session.topic}\nNivel: ${session.difficulty}\nFecha: ${session.createdAt}\nEstado: ${session.ended?'Cerrada':'En curso, soluciones ocultas'}\n\n`;session.messages.forEach(m=>{text+=`## ${m.role==='user'?'Tú':m.role==='point'?'Fuera de personaje':'Interlocutor'}\n\n${m.text}\n\n`;if(session.ended)(m.traps||[]).forEach(t=>{text+=`Trampa: ${FALLACIES.find(f=>f.id===t.id)?.name||t.id}\n> ${t.quote}\n\n${t.why}\n\n`;});});if(session.ended||session.treeUntil){text+='## Mapa lógico revisado\n\n';session.messages.filter(m=>m.role==='model').slice(0,session.ended?undefined:session.treeUntil).forEach((m,i)=>{text+=`### Turno ${i+1}\n\n`;if(!m.graph){text+='Análisis no disponible.\n\n';return;}m.graph.nodes.forEach(n=>{text+=`- ${n.id} (${n.kind}, ${n.status}): ${n.quote}\n  ${n.comment}\n`;});m.graph.edges.forEach(e=>{text+=`- ${e.from} → ${e.to}: ${e.comment}\n`;});text+='\n';});}text+='\nLa evaluación es generada por IA y puede equivocarse.\n';const url=URL.createObjectURL(new Blob([text],{type:'text/markdown;charset=utf-8'}));const a=el('a');a.href=url;a.download='contraluz-debate.md';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);}
 $('#export').addEventListener('click',download);
-$('#erase').addEventListener('click',()=>{if(busy||!confirm('¿Borrar de este navegador la sesión guardada y su puntuación? Esta acción no borra datos que haya recibido el proveedor de IA.'))return;session=null;save();paint();$('#error').hidden=true;$('#topic').value='';$('#reply').value='';$('#status').textContent='Se han borrado los datos locales.';});
+function paintProfile(){
+ const p=activeProfile();
+ $('#profile-active').hidden=!p;$('#profile-entry').hidden=!!p;
+ if(p){
+  $('#profile-who').textContent='Registro activo: '+p.name+(p.email?' · '+p.email:'');
+  $('#profile-stats').textContent='Debates cerrados: '+p.stats.debates+' · Puntos: '+p.stats.points+'. Guardado solo en este navegador.';
+  $('#profile-restart').disabled=!session;
+  $('#profile-clear').disabled=!session&&!p.stats.debates&&!p.stats.points;
+ }else{
+  const root=$('#profile-list');root.replaceChildren();
+  profiles.forEach(x=>{
+   const wrap=el('div',undefined,'profile-row');
+   const b=el('button','Entrar como '+x.name,'profile-pick');b.type='button';
+   b.addEventListener('click',()=>{activeId=x.id;saveProfiles();loadSession();viewingModes=false;save();paint();paintProfile();$('#error').hidden=true;$('#status').textContent='Sesión iniciada como '+x.name+'.';});
+   wrap.append(b,el('span',x.stats.debates+' debates · '+x.stats.points+' puntos'+(x.email?' · '+x.email:''),'profile-meta'));
+   root.append(wrap);
+  });
+  if(profiles.length)root.append(el('p','Los registros anteriores ya están en este navegador. Entrar con uno recupera su debate guardado.','privacy'));
+ }
+}
+function restartSession(){
+ if(busy)return;
+ if(!session){$('#status').textContent='No hay ningún debate guardado que reiniciar.';return;}
+ if(!confirm('Se descartará el debate actual y empezarás de cero'+(activeProfile()?' con el mismo registro':'')+'. Descárgalo primero si quieres conservarlo. ¿Reiniciar la sesión?'))return;
+ session=null;viewingModes=false;save();paint();$('#error').hidden=true;$('#topic').value='';$('#status').textContent='Sesión reiniciada. Elige un nuevo ejercicio.';
+}
+$('#restart').addEventListener('click',restartSession);
+$('#profile-restart').addEventListener('click',()=>{restartSession();paintProfile();});
+$('#profile-open').addEventListener('click',()=>{if(busy)return;paintProfile();$('#profile').showModal();});
+$('#profile-close').addEventListener('click',()=>$('#profile').close());
+$('#profile-form').addEventListener('submit',e=>{
+ e.preventDefault();if(busy)return;
+ const name=$('#profile-name').value.trim();
+ const email=$('#profile-email').value.trim();
+ if(name.length<2){$('#error').hidden=false;$('#error').textContent='El registro necesita un nombre o alias de al menos dos letras.';return;}
+ if(profiles.some(x=>x.name.toLowerCase()===name.toLowerCase())){$('#error').hidden=false;$('#error').textContent='Ya existe un registro con ese nombre en este navegador. Entra con él o elige otro nombre.';return;}
+ const p={id:'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,8),name,email,createdAt:new Date().toISOString(),stats:{debates:0,points:0}};
+ profiles.push(p);activeId=p.id;saveProfiles();loadSession();viewingModes=false;save();paint();paintProfile();
+ $('#profile-name').value='';$('#profile-email').value='';$('#error').hidden=true;$('#status').textContent='Registro creado. Sesión iniciada como '+name+'.';
+});
+$('#profile-signout').addEventListener('click',()=>{
+ if(busy)return;activeId='';saveProfiles();loadSession();viewingModes=false;save();paint();paintProfile();$('#error').hidden=true;$('#status').textContent='Has cerrado la sesión del registro. Juegas como invitado.';
+});
+$('#profile-clear').addEventListener('click',()=>{
+ const p=activeProfile();if(busy||!p)return;
+ if(!confirm('Se borrará el debate guardado y la actividad acumulada de «'+p.name+'», pero se conservará el registro'+(p.email?' (nombre y correo)':' (nombre)')+'. ¿Continuar?'))return;
+ session=null;p.stats={debates:0,points:0};saveProfiles();save();viewingModes=false;paint();paintProfile();$('#error').hidden=true;$('#topic').value='';$('#status').textContent='Se ha borrado la actividad de '+p.name+'. El registro se conserva.';
+});
+$('#profile-delete').addEventListener('click',()=>{
+ const p=activeProfile();if(busy||!p)return;
+ if(!confirm('Se eliminará el registro de «'+p.name+'» y toda su actividad guardada en este navegador. ¿Eliminarlo?'))return;
+ profiles=profiles.filter(x=>x.id!==p.id);activeId='';saveProfiles();
+ try{localStorage.removeItem(KEY+'.'+p.id);}catch{}
+ session=null;viewingModes=false;paint();paintProfile();$('#error').hidden=true;$('#status').textContent='Registro eliminado. Juegas como invitado.';
+});
+$('#erase').addEventListener('click',()=>{if(busy||!confirm('¿Borrar de este navegador la sesión guardada, la puntuación y todos los registros? Esta acción no borra datos que haya recibido el proveedor de IA.'))return;const ids=profiles.map(p=>p.id);profiles=[];activeId='';saveProfiles();try{ids.forEach(id=>localStorage.removeItem(KEY+'.'+id));}catch{}session=null;save();paint();$('#error').hidden=true;$('#topic').value='';$('#reply').value='';$('#status').textContent='Se han borrado los datos locales, incluidos los registros.';});
 $('#guide-open').addEventListener('click',()=>$('#guide').showModal());$('#guide-close').addEventListener('click',()=>$('#guide').close());
 document.querySelectorAll('[data-topic]').forEach(b=>b.addEventListener('click',()=>{$('#topic').value=b.dataset.topic;$('#topic').focus();}));
 function catalog(query=''){const root=$('#catalog');root.replaceChildren();const norm=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();const fs=FALLACIES.filter(f=>norm(f.name+' '+f.definition).includes(norm(query)));fs.forEach(f=>{const card=el('article',undefined,'definition');card.append(el('h3',f.name),el('p',f.definition));const a=el('a','Fuente');a.href=SOURCES[f.source][1];a.target='_blank';a.rel='noopener noreferrer';card.append(a);root.append(card);});if(!fs.length)root.append(el('p','No hay coincidencias. Prueba con otra palabra.'));}
