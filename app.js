@@ -1,4 +1,4 @@
-import {FALLACIES,SOURCES,requestTurn,detectFallacies,simulateArgument} from './engine.js?v=20261112-2';
+import {FALLACIES,SOURCES,requestTurn,detectFallacies,simulateArgument} from './engine.js?v=20261112-3';
 const $=s=>document.querySelector(s);
 const KEY='contraluz.session.v1';
 const PROFILES_KEY='contraluz.profiles.v1';
@@ -14,7 +14,7 @@ function loadProfiles(){try{const raw=JSON.parse(localStorage.getItem(PROFILES_K
 try{activeId=localStorage.getItem(ACTIVE_KEY)||'';}catch{activeId='';}
 if(activeId&&!profiles.some(p=>p.id===activeId))activeId='';}
 function save(){try{if(session)localStorage.setItem(sessionKey(),JSON.stringify(session));else localStorage.removeItem(sessionKey());}catch{storageOK=false;} storageNote();}
-function storageNote(){const p=activeProfile();$('#storage').textContent=storageOK?('Historial local en este navegador'+(p?' (registro: '+p.name+')':'')+'. No se sincroniza. Puedes descargarlo o borrarlo.'):'No se ha podido guardar el historial en este navegador. Descarga la conversación para conservarla.';}
+function storageNote(){const p=activeProfile();$('#storage').textContent=storageOK?('Historial local en este navegador'+(p?' (perfil: '+p.name+')':'')+'. No se sincroniza. Puedes descargarlo o borrarlo.'):'No se ha podido guardar el historial en este navegador. Descarga la conversación para conservarla.';}
 function loadSession(){session=null;try{const s=JSON.parse(localStorage.getItem(sessionKey())||'null');if(s&&typeof s.topic==='string'&&Array.isArray(s.messages)&&s.messages.length<=100&&s.messages.every(m=>['user','model','point'].includes(m.role)&&typeof m.text==='string'))session=s;}catch{storageOK=false;}}
 loadProfiles();loadSession();
 function paint(){
@@ -22,7 +22,7 @@ function paint(){
  $('.intro').hidden=showArena;$('#setup').hidden=showArena;$('#arena').hidden=!showArena;
  $('#resume-debate').hidden=!(session&&viewingModes);
  if(session&&viewingModes)$('#resume-debate').textContent='← Volver al debate en curso: '+session.topic.slice(0,80);
- const prof=activeProfile();$('#profile-open').textContent=prof?prof.name:'Entrar / registro';
+ const prof=activeProfile();$('#profile-open').textContent=prof?prof.name:'Perfil local';
  $('#restart').hidden=!session||!!session.ended;
  if(!session){storageNote();return;}
  $('#session-topic').textContent=session.topic;
@@ -124,7 +124,7 @@ function paintProfile(){
  const p=activeProfile();
  $('#profile-active').hidden=!p;$('#profile-entry').hidden=!!p;
  if(p){
-  $('#profile-who').textContent='Registro activo: '+p.name+(p.email?' · '+p.email:'');
+  $('#profile-who').textContent='Perfil activo: '+p.name+(p.email?' · '+p.email:'');
   $('#profile-stats').textContent='Debates cerrados: '+p.stats.debates+' · Puntos: '+p.stats.points+'. Guardado solo en este navegador.';
   $('#profile-restart').disabled=!session;
   $('#profile-clear').disabled=!session&&!p.stats.debates&&!p.stats.points;
@@ -132,18 +132,18 @@ function paintProfile(){
   const root=$('#profile-list');root.replaceChildren();
   profiles.forEach(x=>{
    const wrap=el('div',undefined,'profile-row');
-   const b=el('button','Entrar como '+x.name,'profile-pick');b.type='button';
-   b.addEventListener('click',()=>{activeId=x.id;saveProfiles();loadSession();viewingModes=false;save();paint();paintProfile();$('#error').hidden=true;$('#status').textContent='Sesión iniciada como '+x.name+'.';});
+   const b=el('button','Usar perfil '+x.name,'profile-pick');b.type='button';
+   b.addEventListener('click',()=>{activeId=x.id;saveProfiles();loadSession();viewingModes=false;save();paint();paintProfile();$('#error').hidden=true;$('#status').textContent='Perfil activo: '+x.name+'.';});
    wrap.append(b,el('span',x.stats.debates+' debates · '+x.stats.points+' puntos'+(x.email?' · '+x.email:''),'profile-meta'));
    root.append(wrap);
   });
-  if(profiles.length)root.append(el('p','Los registros anteriores ya están en este navegador. Entrar con uno recupera su debate guardado.','privacy'));
+  if(profiles.length)root.append(el('p','Estos perfiles ya existen en este navegador. Al usar uno se recupera su debate guardado.','privacy'));
  }
 }
 function restartSession(){
  if(busy)return;
  if(!session){$('#status').textContent='No hay ningún debate guardado que reiniciar.';return;}
- if(!confirm('Se descartará el debate actual y empezarás de cero'+(activeProfile()?' con el mismo registro':'')+'. Descárgalo primero si quieres conservarlo. ¿Reiniciar la sesión?'))return;
+ if(!confirm('Se descartará el debate actual y empezarás de cero'+(activeProfile()?' con el mismo perfil':'')+'. Descárgalo primero si quieres conservarlo. ¿Reiniciar la sesión?'))return;
  session=null;viewingModes=false;save();paint();$('#error').hidden=true;$('#topic').value='';$('#status').textContent='Sesión reiniciada. Elige un nuevo ejercicio.';
 }
 $('#restart').addEventListener('click',restartSession);
@@ -153,29 +153,28 @@ $('#profile-close').addEventListener('click',()=>$('#profile').close());
 $('#profile-form').addEventListener('submit',e=>{
  e.preventDefault();if(busy)return;
  const name=$('#profile-name').value.trim();
- const email=$('#profile-email').value.trim();
- if(name.length<2){$('#error').hidden=false;$('#error').textContent='El registro necesita un nombre o alias de al menos dos letras.';return;}
- if(profiles.some(x=>x.name.toLowerCase()===name.toLowerCase())){$('#error').hidden=false;$('#error').textContent='Ya existe un registro con ese nombre en este navegador. Entra con él o elige otro nombre.';return;}
- const p={id:'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,8),name,email,createdAt:new Date().toISOString(),stats:{debates:0,points:0}};
+ if(name.length<2){$('#error').hidden=false;$('#error').textContent='El perfil necesita un nombre o alias de al menos dos letras.';return;}
+ if(profiles.some(x=>x.name.toLowerCase()===name.toLowerCase())){$('#error').hidden=false;$('#error').textContent='Ya existe un perfil con ese nombre en este navegador. Úsalo o elige otro nombre.';return;}
+ const p={id:'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,8),name,createdAt:new Date().toISOString(),stats:{debates:0,points:0}};
  profiles.push(p);activeId=p.id;saveProfiles();loadSession();viewingModes=false;save();paint();paintProfile();
- $('#profile-name').value='';$('#profile-email').value='';$('#error').hidden=true;$('#status').textContent='Registro creado. Sesión iniciada como '+name+'.';
+ $('#profile-name').value='';$('#error').hidden=true;$('#status').textContent='Perfil creado y activo: '+name+'.';
 });
 $('#profile-signout').addEventListener('click',()=>{
- if(busy)return;activeId='';saveProfiles();loadSession();viewingModes=false;save();paint();paintProfile();$('#error').hidden=true;$('#status').textContent='Has cerrado la sesión del registro. Juegas como invitado.';
+ if(busy)return;activeId='';saveProfiles();loadSession();viewingModes=false;save();paint();paintProfile();$('#error').hidden=true;$('#status').textContent='Has salido del perfil. Juegas sin perfil; tu actividad anterior se conserva aparte.';
 });
 $('#profile-clear').addEventListener('click',()=>{
  const p=activeProfile();if(busy||!p)return;
- if(!confirm('Se borrará el debate guardado y la actividad acumulada de «'+p.name+'», pero se conservará el registro'+(p.email?' (nombre y correo)':' (nombre)')+'. ¿Continuar?'))return;
- session=null;p.stats={debates:0,points:0};saveProfiles();save();viewingModes=false;paint();paintProfile();$('#error').hidden=true;$('#topic').value='';$('#status').textContent='Se ha borrado la actividad de '+p.name+'. El registro se conserva.';
+ if(!confirm('Se borrará el debate guardado y la actividad acumulada de «'+p.name+'», pero se conservará el perfil con su nombre. ¿Continuar?'))return;
+ session=null;p.stats={debates:0,points:0};saveProfiles();save();viewingModes=false;paint();paintProfile();$('#error').hidden=true;$('#topic').value='';$('#status').textContent='Se ha borrado la actividad de '+p.name+'. El perfil se conserva.';
 });
 $('#profile-delete').addEventListener('click',()=>{
  const p=activeProfile();if(busy||!p)return;
- if(!confirm('Se eliminará el registro de «'+p.name+'» y toda su actividad guardada en este navegador. ¿Eliminarlo?'))return;
+ if(!confirm('Se eliminará el perfil de «'+p.name+'» y toda su actividad guardada en este navegador. ¿Eliminarlo?'))return;
  profiles=profiles.filter(x=>x.id!==p.id);activeId='';saveProfiles();
  try{localStorage.removeItem(KEY+'.'+p.id);}catch{}
- session=null;viewingModes=false;paint();paintProfile();$('#error').hidden=true;$('#status').textContent='Registro eliminado. Juegas como invitado.';
+ session=null;viewingModes=false;paint();paintProfile();$('#error').hidden=true;$('#status').textContent='Perfil eliminado. Juegas sin perfil.';
 });
-$('#erase').addEventListener('click',()=>{if(busy||!confirm('¿Borrar de este navegador la sesión guardada, la puntuación y todos los registros? Esta acción no borra datos que haya recibido el proveedor de IA.'))return;const ids=profiles.map(p=>p.id);profiles=[];activeId='';saveProfiles();try{ids.forEach(id=>localStorage.removeItem(KEY+'.'+id));}catch{}session=null;save();paint();$('#error').hidden=true;$('#topic').value='';$('#reply').value='';$('#status').textContent='Se han borrado los datos locales, incluidos los registros.';});
+$('#erase').addEventListener('click',()=>{if(busy||!confirm('¿Borrar de este navegador la sesión guardada, la puntuación y todos los perfiles? Esta acción no borra datos que haya recibido el proveedor de IA.'))return;const ids=profiles.map(p=>p.id);profiles=[];activeId='';saveProfiles();try{ids.forEach(id=>localStorage.removeItem(KEY+'.'+id));}catch{}session=null;save();paint();$('#error').hidden=true;$('#topic').value='';$('#reply').value='';$('#status').textContent='Se han borrado los datos locales, incluidos los perfiles.';});
 $('#guide-open').addEventListener('click',()=>$('#guide').showModal());$('#guide-close').addEventListener('click',()=>$('#guide').close());
 document.querySelectorAll('[data-topic]').forEach(b=>b.addEventListener('click',()=>{$('#topic').value=b.dataset.topic;$('#topic').focus();}));
 function catalog(query=''){const root=$('#catalog');root.replaceChildren();const norm=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();const fs=FALLACIES.filter(f=>norm(f.name+' '+f.definition).includes(norm(query)));fs.forEach(f=>{const card=el('article',undefined,'definition');card.append(el('h3',f.name),el('p',f.definition));const a=el('a','Fuente');a.href=SOURCES[f.source][1];a.target='_blank';a.rel='noopener noreferrer';card.append(a);root.append(card);});if(!fs.length)root.append(el('p','No hay coincidencias. Prueba con otra palabra.'));}
