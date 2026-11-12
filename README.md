@@ -2,6 +2,15 @@
 
 Simulador consentido de debate para entrenar el pensamiento crítico. Interfaz en español, identidad ámbar, sin registro adicional ni claves en el navegador.
 
+## Estado de verificación · 12 de noviembre de 2026 (tarde) · registro y sesión
+
+A petición del autor, gestión de la actividad sin salir del navegador:
+
+- **«Entrar / registro»** (cabecera) abre el registro local: nombre o alias obligatorio y correo opcional, que no se verifica ni sale del navegador. Sin contraseña ni servidor. Se puede seguir jugando como invitado; la sesión de invitado se conserva aparte y no se pierde al crear un registro.
+- Cada registro guarda su propio debate en curso y sus contadores (debates cerrados y puntos). **«Reiniciar sesión»** descarta el debate actual y empieza de cero conservando el registro; **«Borrar lo hecho»** elimina el debate y los contadores conservando el registro; **«Eliminar este registro»** borra el registro y su actividad. El botón del pie «Borrar datos de este navegador» elimina ahora también los registros.
+- Un inicio de sesión real con correo verificado y sincronización entre dispositivos necesitaría un servicio aparte con tratamiento de datos de terceros; no se ha activado.
+- Verificación: flujo automatizado completo en Chromium (crear registro, cerrar y reentrar recuperando el debate, reiniciar sesión, borrar lo hecho conservando el registro, eliminar el registro) e inspección visual a 390 y 1280 píxeles de la entrada, del diálogo de registro en sus dos estados y de la arena con el botón «Reiniciar sesión». Estas pruebas no usaron IA y la conexión existente no se modificó.
+
 ## Estado de verificación · 12 de noviembre de 2026
 
 Ampliación con dos modos nuevos junto al debate:
@@ -22,6 +31,7 @@ El catálogo y la guía se pueden consultar sin usar IA. No hay respuestas prefa
 ## Uso
 
 0. Elige el ejercicio: **Debate**, **Detectar en un texto** o **Simular un argumento**.
+   Opcional: entra con un registro local desde «Entrar / registro» para llevar tu actividad bajo un nombre, con opciones de reiniciar la sesión o borrar lo hecho sin perder el registro.
 1. Propón un tema o escenario y elige nivel: Inicial, Sutil o Exigente.
 2. Lee el aviso de simulación y privacidad antes de empezar.
 3. Debate normalmente, o usa **Señalar trampa** para nombrar o describir la falacia y explicar el salto lógico. También puedes hacerlo dentro de un mensaje normal.
@@ -47,7 +57,7 @@ La aplicación distingue errores argumentativos de sesgos psicológicos y explic
 
 - El tema, el contexto reciente y las explicaciones se envían a un servicio separado de Contraluz en Cloudflare Workers AI, modelo fijo `@cf/zai-org/glm-4.7-flash`. No se guarda ninguna clave en esta aplicación.
 - No hay cambio automático a modelos de pago ni llamadas en segundo plano. Cada turno requiere una acción del participante. Una petición cancelada puede haber consumido cuota gratuita.
-- La sesión se guarda en `localStorage`, solo en el navegador actual, sin cifrado ni sincronización. La opción de borrar elimina esa copia local, no los datos que pudiera haber recibido el proveedor.
+- La sesión se guarda en `localStorage`, solo en el navegador actual, sin cifrado ni sincronización. Los registros locales (nombre y correo opcional) viven también solo en ese navegador. Las opciones de borrado eliminan esas copias locales, no los datos que pudiera haber recibido el proveedor.
 - No uses datos sensibles ni tomes los argumentos del personaje como información fiable o asesoramiento.
 - La IA puede equivocarse al generar o evaluar falacias. La puntuación no es una evaluación académica.
 - La generación recibe hasta 8 mensajes recientes; la evaluación recibe el último argumento y la respuesta del participante. Las sesiones largas pueden perder parte del contexto anterior. El límite de una sesión es de 90 mensajes.
